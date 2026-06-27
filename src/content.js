@@ -39,24 +39,89 @@
 
   /* ---------- scroll restore ---------- */
 
-  function restoreScroll() {
+  // The scroll target we still owe the page, if any. Re-applied on
+  // visibilitychange because the auto-refresh typically fires while the tab
+  // is in the background, where requestAnimationFrame-based polling never
+  // runs at all (the browser doesn't repaint hidden tabs).
+  let pendingScroll = null;
+
+  // Resolves once the page has fully finished loading (all resources —
+  // images, stylesheets, iframes — not just the DOM). Scrolling before this
+  // can be clamped to a too-small page height and silently fail.
+  function whenFullyLoaded() {
+    return new Promise((resolve) => {
+      if (document.readyState === "complete") {
+        resolve();
+      } else {
+        window.addEventListener("load", () => resolve(), { once: true });
+      }
+    });
+  }
+
+  // Resolves once the document height stops growing for `quietMs`, or
+  // `maxWaitMs` elapses — whichever comes first. Catches layout caused by
+  // late images/fonts/lazy content that finishes after the `load` event.
+  // Uses setTimeout (not requestAnimationFrame) so it still progresses when
+  // the tab is backgrounded — rAF callbacks are suspended entirely then.
+  function whenHeightSettles(quietMs = 400, maxWaitMs = 4000) {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      let lastHeight = document.documentElement.scrollHeight;
+      let lastChange = Date.now();
+      const check = () => {
+        const h = document.documentElement.scrollHeight;
+        const now = Date.now();
+        if (h !== lastHeight) {
+          lastHeight = h;
+          lastChange = now;
+        }
+        if (now - lastChange >= quietMs || now - start >= maxWaitMs) {
+          resolve();
+          return;
+        }
+        setTimeout(check, 100);
+      };
+      setTimeout(check, 100);
+    });
+  }
+
+  async function restoreScroll() {
     if (!config || !config.autoScroll) return;
     const targetY = Number(config.scrollY) || 0;
     const targetX = Number(config.scrollX) || 0;
     if (targetY === 0 && targetX === 0) return;
 
-    // Pages often grow/reflow after load, which can reset scroll. Re-apply the
-    // target position repeatedly for a short window until it sticks.
+    pendingScroll = { x: targetX, y: targetY };
+
+    await whenFullyLoaded();
+    await whenHeightSettles();
+
+    // Pages can still reflow a little after this (web fonts swapping in,
+    // late images). Re-apply the target position for a short window until
+    // it sticks, so the final position wins. setTimeout (not rAF) keeps this
+    // running even while the tab is hidden.
     const deadline = Date.now() + 3000;
     const apply = () => {
       window.scrollTo(targetX, targetY);
-      if (Date.now() < deadline && Math.abs(window.scrollY - targetY) > 2) {
-        requestAnimationFrame(apply);
+      if (Math.abs(window.scrollY - targetY) <= 2) {
+        pendingScroll = null;
+        return;
+      }
+      if (Date.now() < deadline) {
+        setTimeout(apply, 100);
       }
     };
-    // Give layout a beat, then start applying.
-    setTimeout(apply, 60);
+    apply();
   }
+
+  // Safety net: if the tab was hidden while we were trying to restore (rAF
+  // and even some timers can stall on a backgrounded tab), re-apply as soon
+  // as it becomes visible again.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && pendingScroll) {
+      window.scrollTo(pendingScroll.x, pendingScroll.y);
+    }
+  });
 
   /* ---------- countdown ---------- */
 
@@ -157,7 +222,9 @@
   (async function init() {
     const all = await loadAll();
     config = all[KEY] || null;
-    restoreScroll();
+    // Start the countdown immediately — it doesn't depend on page load —
+    // but let scroll restoration wait for the page to fully settle.
     startTimer();
+    restoreScroll();
   })();
 })();
