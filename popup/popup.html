@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>Auto Refresh & Scroller</title>
+</head>
+<body>
+  <header class="hdr">
+    <div class="title">↻ Auto Refresh &amp; Scroller</div>
+    <div class="site" id="site">—</div>
+  </header>
+
+  <section class="countdown" id="countdownBox">
+    <div class="cd-label">Next refresh in</div>
+    <div class="cd-time" id="cdTime">—</div>
+    <div class="cd-state" id="cdState"></div>
+  </section>
+
+  <section class="card">
+    <label class="row switch-row">
+      <span>Auto-refresh this page</span>
+      <input type="checkbox" id="enabled" />
+      <span class="slider"></span>
+    </label>
+
+    <div class="row">
+      <span>Interval</span>
+      <div class="interval">
+        <input type="number" id="interval" min="1" step="1" value="60"
+               title="Refresh interval" aria-label="Refresh interval value" />
+        <select id="unit" title="Interval unit" aria-label="Interval unit">
+          <option value="1">seconds</option>
+          <option value="60">minutes</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="quick" id="quick">
+      <button type="button" data-secs="15">15s</button>
+      <button type="button" data-secs="30">30s</button>
+      <button type="button" data-secs="60">1m</button>
+      <button type="button" data-secs="300">5m</button>
+      <button type="button" data-secs="600">10m</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <label class="row switch-row">
+      <span>Restore scroll position</span>
+      <input type="checkbox" id="autoScroll" />
+      <span class="slider"></span>
+    </label>
+
+    <div class="row sub">
+      <span>Saved position</span>
+      <span class="saved" id="savedPos">none</span>
+    </div>
+
+    <label class="row sub checkbox-row">
+      <input type="checkbox" id="trackOnRefresh" />
+      <span>Update saved position on each refresh</span>
+    </label>
+
+    <button type="button" class="btn primary full" id="saveScroll">📌 Save current scroll position</button>
+  </section>
+
+  <section class="card compact">
+    <label class="row checkbox-row">
+      <input type="checkbox" id="pauseWhenHidden" />
+      <span>Pause while tab is in background</span>
+    </label>
+  </section>
+
+  <div class="actions">
+    <button type="button" class="btn" id="refreshNow">⟳ Refresh now</button>
+    <button type="button" class="btn danger" id="clearSite">Remove page</button>
+  </div>
+
+  <details class="sites">
+    <summary>Configured pages (<span id="siteCount">0</span>)</summary>
+    <ul id="siteList"></ul>
+  </details>
+
+  <script src="popup.js"></script>
+</body>
+</html>
